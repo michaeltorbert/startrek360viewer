@@ -50,6 +50,20 @@
   .hud span.val { color: var(--lcars-orange); }
   .hud span.ok { color: #66ff88; }
   .hud span.warn { color: var(--lcars-red); }
+  .image-selector { position: absolute; top: 158px; left: 16px; z-index: 30; width: min(28vw, 300px); min-width: 230px; display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
+  .selector-heading { display: flex; align-items: stretch; height: 28px; color: var(--lcars-orange); font-size: 10px; letter-spacing: 0.18em; line-height: 28px; }
+  .selector-heading::before { content: ''; width: 74px; background: var(--lcars-orange); border-radius: 0 0 18px 0; margin-right: 8px; }
+  .selector-heading span { padding-right: 14px; white-space: nowrap; }
+  .panorama-option { position: relative; display: block; width: 100%; height: 74px; border: 0; border-radius: 0 16px 16px 0; padding: 6px 6px 6px 28px; background: rgba(0,0,12,0.78); box-shadow: 0 0 0 1px rgba(153,204,255,0.28), 0 10px 24px rgba(0,0,0,0.45); cursor: pointer; overflow: hidden; transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease; }
+  .panorama-option::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 20px; background: var(--accent, var(--lcars-orange)); border-radius: 0 0 14px 0; transition: width 0.18s ease; }
+  .panorama-option img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 0 11px 11px 0; opacity: 0.72; filter: saturate(0.86) contrast(1.05); transform: rotate(var(--preview-rotation, 0deg)); transition: opacity 0.18s ease, filter 0.18s ease; }
+  .panorama-option span { position: absolute; left: 36px; right: 14px; bottom: 9px; color: rgba(153,204,255,0.9); font: 10px 'Share Tech Mono', monospace; letter-spacing: 0.12em; text-align: left; text-shadow: 0 1px 4px #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panorama-option:hover, .panorama-option:focus-visible { transform: translateX(3px); background: rgba(0,0,18,0.9); outline: none; box-shadow: 0 0 0 1px rgba(255,153,0,0.62), 0 12px 26px rgba(0,0,0,0.5); }
+  .panorama-option:hover img, .panorama-option:focus-visible img { opacity: 0.94; filter: saturate(1.08) contrast(1.08); }
+  .panorama-option.is-active { box-shadow: 0 0 0 2px rgba(153,204,255,0.72), 0 0 24px rgba(153,204,255,0.26), 0 12px 26px rgba(0,0,0,0.55); }
+  .panorama-option.is-active::before { width: 26px; }
+  .panorama-option.is-active img { opacity: 1; filter: saturate(1.12) contrast(1.08); }
+  .panorama-option.is-active span { color: #ffffff; }
   .crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 15; pointer-events: none; opacity: 0.35; width: 32px; height: 32px; }
   .crosshair::before, .crosshair::after { content: ''; position: absolute; background: var(--lcars-teal); }
   .crosshair::before { width: 32px; height: 1px; top: 15px; left: 0; }
@@ -70,6 +84,21 @@
   .fallback { position: absolute; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: #000008; padding: 24px; text-align: center; }
   .fallback-inner { max-width: 520px; border: 1px solid rgba(153,204,255,0.45); padding: 24px; color: var(--lcars-teal); font-family: 'Share Tech Mono', monospace; line-height: 1.6; }
   .fallback-title { color: var(--lcars-orange); font-family: 'Orbitron', monospace; font-size: 14px; font-weight: 700; letter-spacing: 0.18em; margin-bottom: 12px; }
+  @media (max-width: 720px) {
+    .lcars-top .corner-l, .lcars-top .corner-r, .lcars-bottom .corner-l, .lcars-bottom .corner-r { width: 80px; }
+    .lcars-top .title { min-width: 0; padding: 0 10px; font-size: 10px; letter-spacing: 0.08em; overflow: hidden; text-overflow: ellipsis; }
+    .lcars-bottom .info { min-width: 0; padding: 0 8px; font-size: 9px; letter-spacing: 0.06em; overflow: hidden; text-overflow: ellipsis; }
+    .lcars-left, .lcars-right { width: 52px; }
+    .hud { font-size: 10px; letter-spacing: 0.06em; line-height: 1.7; }
+    .hud-l { left: 64px; top: 70px; }
+    .hud-r { right: 64px; top: 70px; }
+    .image-selector { top: auto; left: 14px; right: 14px; bottom: 84px; width: auto; min-width: 0; flex-direction: row; align-items: flex-end; gap: 8px; overflow-x: auto; padding-bottom: 3px; }
+    .selector-heading { display: none; }
+    .panorama-option { width: 148px; height: 58px; flex: 0 0 148px; padding-left: 22px; }
+    .panorama-option::before { width: 16px; }
+    .panorama-option.is-active::before { width: 20px; }
+    .panorama-option span { left: 28px; right: 10px; bottom: 7px; font-size: 9px; }
+  }
 </style>
 </head>
 <body>
@@ -111,7 +140,7 @@
   HEADING: <span class="val" id="heading">000°</span><br>
   PITCH:&nbsp;&nbsp; <span class="val" id="pitch">+00°</span><br>
   FOV:&nbsp;&nbsp;&nbsp;&nbsp; <span class="val" id="fovval">75°</span><br>
-  CONTACTS: <span class="warn">14</span>
+  CONTACTS: <span class="warn" id="contactCount">14</span>
 </div>
 <div class="hud hud-r">
   SHIELDS: <span class="val">87%</span><br>
@@ -121,6 +150,9 @@
 </div>
 
 <div class="crosshair"><div class="crosshair-dot"></div></div>
+<div class="image-selector" id="imageSelector" aria-label="Select 360 image">
+  <div class="selector-heading"><span>VIEW BANK</span></div>
+</div>
 <div id="hint">DRAG TO EXPLORE · SCROLL TO ZOOM · TOUCH SUPPORTED</div>
 
 <script>
@@ -210,22 +242,94 @@ const uPitch = gl.getUniformLocation(prog, 'u_pitch');
 const uFov   = gl.getUniformLocation(prog, 'u_fov');
 const uRes   = gl.getUniformLocation(prog, 'u_res');
 
-// Load texture
+const PANORAMAS = [
+  {
+    name: 'Sector 215 Battle',
+    file: 'sector-215-battle.png',
+    contacts: '14',
+    accent: '#ff9900',
+  },
+  {
+    name: 'Star Fleet Academy',
+    file: 'starfleet-academy.png',
+    contacts: '14',
+    accent: '#99ccff',
+    rotate: 180,
+  },
+  {
+    name: 'Rules of Acquisition',
+    file: 'ferengi-rules-of-acquisition-school.png',
+    contacts: '34',
+    accent: '#cc88ff',
+    rotate: 180,
+  },
+];
+
 const tex = gl.createTexture();
 gl.bindTexture(gl.TEXTURE_2D, tex);
 gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0,0,20,255]));
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
-const img = new Image();
-img.crossOrigin = 'anonymous';
-img.onload = () => {
-  gl.bindTexture(gl.TEXTURE_2D, tex);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-};
-img.src = '060dbd4e-ea76-4813-8d9b-ae8dd24acf36.png';
+const imageSelector = document.getElementById('imageSelector');
+const contactCount = document.getElementById('contactCount');
+let activeImageToken = 0;
+
+function getTextureSource(img, panorama) {
+  if (panorama.rotate !== 180) return img;
+  const work = document.createElement('canvas');
+  work.width = img.naturalWidth;
+  work.height = img.naturalHeight;
+  const ctx = work.getContext('2d');
+  ctx.translate(work.width, work.height);
+  ctx.rotate(Math.PI);
+  ctx.drawImage(img, 0, 0);
+  return work;
+}
+
+function loadPanorama(index) {
+  const panorama = PANORAMAS[index];
+  if (!panorama) return;
+  const token = ++activeImageToken;
+  const img = new Image();
+  img.onload = () => {
+    if (token !== activeImageToken) return;
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, getTextureSource(img, panorama));
+    if (contactCount && panorama.contacts) contactCount.textContent = panorama.contacts;
+  };
+  img.onerror = () => showFallback(`Unable to load panorama image: ${panorama.file}`);
+  img.src = panorama.file;
+  document.querySelectorAll('.panorama-option').forEach((option, optionIndex) => {
+    option.classList.toggle('is-active', optionIndex === index);
+    option.setAttribute('aria-pressed', optionIndex === index ? 'true' : 'false');
+  });
+}
+
+PANORAMAS.forEach((panorama, index) => {
+  const option = document.createElement('button');
+  option.className = 'panorama-option';
+  option.type = 'button';
+  option.style.setProperty('--accent', panorama.accent);
+  option.style.setProperty('--preview-rotation', `${panorama.rotate || 0}deg`);
+  option.setAttribute('aria-label', `Load ${panorama.name}`);
+  option.setAttribute('aria-pressed', 'false');
+  const preview = document.createElement('img');
+  preview.src = panorama.file;
+  preview.alt = '';
+  preview.loading = 'eager';
+  const label = document.createElement('span');
+  label.textContent = panorama.name;
+  option.append(preview, label);
+  option.addEventListener('click', () => {
+    stopAuto();
+    loadPanorama(index);
+  });
+  imageSelector.append(option);
+});
+loadPanorama(0);
 
 // State
 let yaw=0, pitch=0, fov=75;
