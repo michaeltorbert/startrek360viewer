@@ -16,7 +16,7 @@
     --bg: #000008;
   }
   body { background: var(--bg); color: var(--lcars-orange); font-family: 'Share Tech Mono', monospace; overflow: hidden; height: 100vh; width: 100vw; user-select: none; }
-  canvas#viewer { display: block; width: 100%; height: 100%; cursor: grab; }
+  canvas#viewer { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
   canvas#viewer:active { cursor: grabbing; }
   .lcars-top { position: absolute; top: 0; left: 0; right: 0; height: 56px; display: flex; align-items: stretch; pointer-events: none; z-index: 10; }
   .lcars-top .corner-l { width: 120px; background: var(--lcars-orange); border-radius: 0 0 28px 0; flex-shrink: 0; }
@@ -190,8 +190,10 @@ img.src = 'https://raw.githubusercontent.com/michaeltorbert/startrek360viewer/ma
 // State
 let yaw=0, pitch=0, fov=75;
 let tYaw=0, tPitch=0, tFov=75;
-let drag=false, lastX=0, lastY=0;
-let autoRot=true, autoTimer=null;
+let yawVel=0, pitchVel=0;
+let autoRot=true;
+const PITCH_LIMIT = Math.PI/2 - 0.05;
+const FOV_MIN = 25, FOV_MAX = 110;
 
 function resize() {
   canvas.width = canvas.clientWidth * devicePixelRatio;
@@ -200,38 +202,60 @@ function resize() {
 }
 resize(); window.addEventListener('resize', resize);
 
-const resetAuto = () => { autoRot=false; clearTimeout(autoTimer); autoTimer=setTimeout(()=>autoRot=true, 4000); };
+const stopAuto = () => { autoRot = false; };
 
-canvas.addEventListener('mousedown', e => { drag=true; lastX=e.clientX; lastY=e.clientY; resetAuto(); });
-window.addEventListener('mouseup', () => drag=false);
-window.addEventListener('mousemove', e => {
-  if (!drag) return;
-  const s = fov / 1800;
-  tYaw  -= (e.clientX - lastX) * s;
-  tPitch = Math.max(-1.48, Math.min(1.48, tPitch + (e.clientY - lastY) * s));
-  lastX=e.clientX; lastY=e.clientY;
-});
-canvas.addEventListener('wheel', e => { e.preventDefault(); tFov = Math.max(30, Math.min(120, tFov + e.deltaY * 0.04)); resetAuto(); }, {passive:false});
+// Unified pointer input (mouse, touch, pen) with capture + pinch-zoom
+const pointers = new Map();
+let pinchDist = 0;
 
-// Touch
-let lTX=0, lTY=0, lPinch=0;
-canvas.addEventListener('touchstart', e => {
-  e.preventDefault(); resetAuto();
-  if (e.touches.length===1) { lTX=e.touches[0].clientX; lTY=e.touches[0].clientY; }
-  else if (e.touches.length===2) lPinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
-}, {passive:false});
-canvas.addEventListener('touchmove', e => {
-  e.preventDefault();
-  if (e.touches.length===1) {
-    const s = fov/1200;
-    tYaw  -= (e.touches[0].clientX - lTX) * s;
-    tPitch = Math.max(-1.48, Math.min(1.48, tPitch + (e.touches[0].clientY - lTY) * s));
-    lTX=e.touches[0].clientX; lTY=e.touches[0].clientY;
-  } else if (e.touches.length===2) {
-    const d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
-    tFov = Math.max(30, Math.min(120, tFov + (lPinch-d)*0.1));
-    lPinch=d;
+canvas.addEventListener('pointerdown', e => {
+  canvas.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, t: e.timeStamp });
+  yawVel = pitchVel = 0;
+  stopAuto();
+  if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()];
+    pinchDist = Math.hypot(a.x - b.x, a.y - b.y);
   }
+});
+
+canvas.addEventListener('pointermove', e => {
+  const p = pointers.get(e.pointerId);
+  if (!p) return;
+  const dx = e.clientX - p.x;
+  const dy = e.clientY - p.y;
+  const dt = Math.max(1, e.timeStamp - p.t) / 1000;
+  p.x = e.clientX; p.y = e.clientY; p.t = e.timeStamp;
+
+  if (pointers.size === 1) {
+    const s = (fov * Math.PI / 180) / canvas.clientHeight;
+    tYaw   -= dx * s;
+    tPitch  = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, tPitch + dy * s));
+    yawVel   = -dx * s / dt;
+    pitchVel =  dy * s / dt;
+  } else if (pointers.size === 2) {
+    const pts = [...pointers.values()];
+    const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    if (pinchDist > 0 && d > 0) {
+      tFov = Math.max(FOV_MIN, Math.min(FOV_MAX, tFov * (pinchDist / d)));
+    }
+    pinchDist = d;
+  }
+});
+
+function endPointer(e) {
+  const p = pointers.get(e.pointerId);
+  if (p && e.timeStamp - p.t > 60) { yawVel = 0; pitchVel = 0; }
+  pointers.delete(e.pointerId);
+  if (pointers.size < 2) pinchDist = 0;
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  stopAuto();
+  tFov = Math.max(FOV_MIN, Math.min(FOV_MAX, tFov * Math.exp(e.deltaY * 0.0015)));
 }, {passive:false});
 
 // HUD
@@ -249,14 +273,31 @@ setTimeout(() => {
 // Hint fade
 setTimeout(() => { document.getElementById('hint').style.opacity = '0'; }, 5000);
 
-function lerp(a,b,t) { return a+(b-a)*t; }
+const lerp = (a,b,t) => a + (b - a) * t;
+let lastT = performance.now();
 
-function render() {
+function render(now) {
   requestAnimationFrame(render);
-  if (autoRot) tYaw += 0.0008;
-  yaw   = lerp(yaw,   tYaw,   0.08);
-  pitch = lerp(pitch, tPitch, 0.08);
-  fov   = lerp(fov,   tFov,   0.08);
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+
+  if (autoRot) tYaw += 0.05 * dt;
+
+  if (pointers.size === 0 && (yawVel || pitchVel)) {
+    tYaw   += yawVel   * dt;
+    tPitch  = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, tPitch + pitchVel * dt));
+    const decay = Math.exp(-3.0 * dt);
+    yawVel   *= decay;
+    pitchVel *= decay;
+    if (Math.abs(yawVel)   < 0.001) yawVel   = 0;
+    if (Math.abs(pitchVel) < 0.001) pitchVel = 0;
+  }
+
+  const kMove = 1 - Math.exp(-18 * dt);
+  const kZoom = 1 - Math.exp(-12 * dt);
+  yaw   = lerp(yaw,   tYaw,   kMove);
+  pitch = lerp(pitch, tPitch, kMove);
+  fov   = lerp(fov,   tFov,   kZoom);
 
   gl.uniform1f(uYaw, yaw);
   gl.uniform1f(uPitch, pitch);
@@ -270,7 +311,7 @@ function render() {
   hPitch.textContent = (pd>=0?'+':'')+pd.toFixed(0).padStart(2,'0')+'°';
   hFov.textContent   = fov.toFixed(0)+'°';
 }
-render();
+requestAnimationFrame(render);
 </script>
 </body>
 </html>
