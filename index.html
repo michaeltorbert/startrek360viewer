@@ -254,56 +254,70 @@ const PANORAMAS = [
     file: 'starfleet-academy.png',
     contacts: '14',
     accent: '#99ccff',
-    rotate: 180,
+    flipX: true,
   },
   {
     name: 'Rules of Acquisition',
     file: 'ferengi-rules-of-acquisition-school.png',
     contacts: '34',
     accent: '#cc88ff',
-    rotate: 180,
+    flipX: true,
   },
   {
     name: 'Q Game Show',
     file: 'q-game-show.png',
     contacts: '49',
     accent: '#cc88ff',
-    rotate: 180,
+    flipX: true,
   },
   {
     name: 'Lower Decks Talent Show',
     file: 'starfleet-lower-decks-talent-show.png',
     contacts: '27',
     accent: '#9999ff',
-    rotate: 180,
+    flipX: true,
   },
   {
     name: 'Delta Quadrant Science Fair',
     file: 'delta-quadrant-science-fair.png',
     contacts: '86',
     accent: '#99ccff',
-    rotate: 180,
+    flipX: true,
   },
   {
     name: "Captain's Log Podcast",
     file: 'captains-log-podcast.png',
     contacts: '12',
     accent: '#ff9900',
-    rotate: 180,
+    flipX: true,
   },
   {
     name: 'Transporter Lost and Found',
     file: 'transporter-lost-and-found-office.png',
     contacts: '18',
     accent: '#cc6666',
-    rotate: 180,
+    flipX: true,
   },
   {
     name: 'Deep Space Chess Championship',
     file: 'deep-space-chess-championship.png',
     contacts: '73',
     accent: '#9999ff',
-    rotate: 180,
+    flipX: true,
+  },
+  {
+    name: "Quark's Starship Lot",
+    file: 'quarks-used-starship-lot.png',
+    contacts: '41',
+    accent: '#ff9900',
+    flipX: true,
+  },
+  {
+    name: 'Lower Decks Talent Night',
+    file: 'lower-decks-talent-night.png',
+    contacts: '22',
+    accent: '#cc88ff',
+    flipX: true,
   },
 ];
 
@@ -320,13 +334,13 @@ const contactCount = document.getElementById('contactCount');
 let activeImageToken = 0;
 
 function getTextureSource(img, panorama) {
-  if (panorama.rotate !== 180) return img;
+  if (!panorama.flipX) return img;
   const work = document.createElement('canvas');
   work.width = img.naturalWidth;
   work.height = img.naturalHeight;
   const ctx = work.getContext('2d');
-  ctx.translate(work.width, work.height);
-  ctx.rotate(Math.PI);
+  ctx.translate(work.width, 0);
+  ctx.scale(-1, 1);
   ctx.drawImage(img, 0, 0);
   return work;
 }
