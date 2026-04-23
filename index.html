@@ -67,6 +67,9 @@
   .boot-line.warn { color: var(--lcars-red); font-size: 13px; }
   @keyframes bootShow { to { opacity: 1; } }
   #hint { position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%); z-index: 20; font-size: 11px; color: rgba(153,204,255,0.55); letter-spacing: 0.15em; text-align: center; pointer-events: none; transition: opacity 1s; }
+  .fallback { position: absolute; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: #000008; padding: 24px; text-align: center; }
+  .fallback-inner { max-width: 520px; border: 1px solid rgba(153,204,255,0.45); padding: 24px; color: var(--lcars-teal); font-family: 'Share Tech Mono', monospace; line-height: 1.6; }
+  .fallback-title { color: var(--lcars-orange); font-family: 'Orbitron', monospace; font-size: 14px; font-weight: 700; letter-spacing: 0.18em; margin-bottom: 12px; }
 </style>
 </head>
 <body>
@@ -124,6 +127,30 @@
 const canvas = document.getElementById('viewer');
 const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
 
+function showFallback(message) {
+  console.error(message);
+  const fallback = document.createElement('div');
+  fallback.className = 'fallback';
+  fallback.setAttribute('role', 'alert');
+  const inner = document.createElement('div');
+  inner.className = 'fallback-inner';
+  const title = document.createElement('div');
+  title.className = 'fallback-title';
+  title.textContent = 'TACTICAL DISPLAY UNAVAILABLE';
+  const body = document.createElement('div');
+  body.textContent = message;
+  inner.append(title, body);
+  fallback.append(inner);
+  document.body.append(fallback);
+  const boot = document.getElementById('boot');
+  if (boot) boot.remove();
+  throw new Error(message);
+}
+
+if (!gl) {
+  showFallback('This browser does not support WebGL, or WebGL is disabled.');
+}
+
 const vsSource = `
   attribute vec2 a_pos;
   varying vec2 v_uv;
@@ -151,12 +178,25 @@ const fsSource = `
 
 function mkShader(type, src) {
   const s = gl.createShader(type);
-  gl.shaderSource(s, src); gl.compileShader(s); return s;
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+    const log = gl.getShaderInfoLog(s) || 'Unknown shader compile error.';
+    gl.deleteShader(s);
+    showFallback(`WebGL shader compilation failed: ${log}`);
+  }
+  return s;
 }
 const prog = gl.createProgram();
 gl.attachShader(prog, mkShader(gl.VERTEX_SHADER, vsSource));
 gl.attachShader(prog, mkShader(gl.FRAGMENT_SHADER, fsSource));
-gl.linkProgram(prog); gl.useProgram(prog);
+gl.linkProgram(prog);
+if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+  const log = gl.getProgramInfoLog(prog) || 'Unknown WebGL program link error.';
+  gl.deleteProgram(prog);
+  showFallback(`WebGL program linking failed: ${log}`);
+}
+gl.useProgram(prog);
 
 const buf = gl.createBuffer();
 gl.bindBuffer(gl.ARRAY_BUFFER, buf);
@@ -185,7 +225,7 @@ img.onload = () => {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 };
-img.src = 'https://raw.githubusercontent.com/michaeltorbert/startrek360viewer/main/060dbd4e-ea76-4813-8d9b-ae8dd24acf36.png';
+img.src = '060dbd4e-ea76-4813-8d9b-ae8dd24acf36.png';
 
 // State
 let yaw=0, pitch=0, fov=75;
