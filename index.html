@@ -50,13 +50,13 @@
   .hud span.val { color: var(--lcars-orange); }
   .hud span.ok { color: #66ff88; }
   .hud span.warn { color: var(--lcars-red); }
-  .image-selector { position: absolute; top: 158px; left: 16px; z-index: 30; width: min(28vw, 300px); min-width: 230px; display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
+  .image-selector { position: absolute; top: 158px; left: 16px; z-index: 30; width: min(28vw, 300px); min-width: 230px; max-height: calc(100vh - 230px); display: flex; flex-direction: column; gap: 10px; padding-right: 6px; overflow-y: auto; pointer-events: auto; scrollbar-color: rgba(153,204,255,0.5) rgba(0,0,12,0.3); }
   .selector-heading { display: flex; align-items: stretch; height: 28px; color: var(--lcars-orange); font-size: 10px; letter-spacing: 0.18em; line-height: 28px; }
   .selector-heading::before { content: ''; width: 74px; background: var(--lcars-orange); border-radius: 0 0 18px 0; margin-right: 8px; }
   .selector-heading span { padding-right: 14px; white-space: nowrap; }
-  .panorama-option { position: relative; display: block; width: 100%; height: 74px; border: 0; border-radius: 0 16px 16px 0; padding: 6px 6px 6px 28px; background: rgba(0,0,12,0.78); box-shadow: 0 0 0 1px rgba(153,204,255,0.28), 0 10px 24px rgba(0,0,0,0.45); cursor: pointer; overflow: hidden; transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease; }
+  .panorama-option { position: relative; display: block; flex: 0 0 74px; width: 100%; height: 74px; border: 0; border-radius: 0 16px 16px 0; padding: 6px 6px 6px 28px; background: rgba(0,0,12,0.78); box-shadow: 0 0 0 1px rgba(153,204,255,0.28), 0 10px 24px rgba(0,0,0,0.45); cursor: pointer; overflow: hidden; transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease; }
   .panorama-option::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 20px; background: var(--accent, var(--lcars-orange)); border-radius: 0 0 14px 0; transition: width 0.18s ease; }
-  .panorama-option img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 0 11px 11px 0; opacity: 0.72; filter: saturate(0.86) contrast(1.05); transform: rotate(var(--preview-rotation, 0deg)); transition: opacity 0.18s ease, filter 0.18s ease; }
+  .panorama-option img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 0 11px 11px 0; opacity: 0.72; filter: saturate(0.86) contrast(1.05); transition: opacity 0.18s ease, filter 0.18s ease; }
   .panorama-option span { position: absolute; left: 36px; right: 14px; bottom: 9px; color: rgba(153,204,255,0.9); font: 10px 'Share Tech Mono', monospace; letter-spacing: 0.12em; text-align: left; text-shadow: 0 1px 4px #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .panorama-option:hover, .panorama-option:focus-visible { transform: translateX(3px); background: rgba(0,0,18,0.9); outline: none; box-shadow: 0 0 0 1px rgba(255,153,0,0.62), 0 12px 26px rgba(0,0,0,0.5); }
   .panorama-option:hover img, .panorama-option:focus-visible img { opacity: 0.94; filter: saturate(1.08) contrast(1.08); }
@@ -92,7 +92,7 @@
     .hud { font-size: 10px; letter-spacing: 0.06em; line-height: 1.7; }
     .hud-l { left: 64px; top: 70px; }
     .hud-r { right: 64px; top: 70px; }
-    .image-selector { top: auto; left: 14px; right: 14px; bottom: 84px; width: auto; min-width: 0; flex-direction: row; align-items: flex-end; gap: 8px; overflow-x: auto; padding-bottom: 3px; }
+    .image-selector { top: auto; left: 14px; right: 14px; bottom: 84px; width: auto; min-width: 0; max-height: none; flex-direction: row; align-items: flex-end; gap: 8px; overflow-x: auto; overflow-y: hidden; padding-bottom: 3px; }
     .selector-heading { display: none; }
     .panorama-option { width: 148px; height: 58px; flex: 0 0 148px; padding-left: 22px; }
     .panorama-option::before { width: 16px; }
@@ -204,7 +204,7 @@ const fsSource = `
     dir = rotX(u_pitch) * rotY(u_yaw) * dir;
     float lon = atan(dir.x, -dir.z);
     float lat = asin(clamp(dir.y, -1.0, 1.0));
-    gl_FragColor = texture2D(u_tex, vec2(lon/(2.0*PI)+0.5, lat/PI+0.5));
+    gl_FragColor = texture2D(u_tex, vec2(0.5-lon/(2.0*PI), lat/PI+0.5));
   }
 `;
 
@@ -263,6 +263,48 @@ const PANORAMAS = [
     accent: '#cc88ff',
     rotate: 180,
   },
+  {
+    name: 'Q Game Show',
+    file: 'q-game-show.png',
+    contacts: '49',
+    accent: '#cc88ff',
+    rotate: 180,
+  },
+  {
+    name: 'Lower Decks Talent Show',
+    file: 'starfleet-lower-decks-talent-show.png',
+    contacts: '27',
+    accent: '#9999ff',
+    rotate: 180,
+  },
+  {
+    name: 'Delta Quadrant Science Fair',
+    file: 'delta-quadrant-science-fair.png',
+    contacts: '86',
+    accent: '#99ccff',
+    rotate: 180,
+  },
+  {
+    name: "Captain's Log Podcast",
+    file: 'captains-log-podcast.png',
+    contacts: '12',
+    accent: '#ff9900',
+    rotate: 180,
+  },
+  {
+    name: 'Transporter Lost and Found',
+    file: 'transporter-lost-and-found-office.png',
+    contacts: '18',
+    accent: '#cc6666',
+    rotate: 180,
+  },
+  {
+    name: 'Deep Space Chess Championship',
+    file: 'deep-space-chess-championship.png',
+    contacts: '73',
+    accent: '#9999ff',
+    rotate: 180,
+  },
 ];
 
 const tex = gl.createTexture();
@@ -313,7 +355,6 @@ PANORAMAS.forEach((panorama, index) => {
   option.className = 'panorama-option';
   option.type = 'button';
   option.style.setProperty('--accent', panorama.accent);
-  option.style.setProperty('--preview-rotation', `${panorama.rotate || 0}deg`);
   option.setAttribute('aria-label', `Load ${panorama.name}`);
   option.setAttribute('aria-pressed', 'false');
   const preview = document.createElement('img');
