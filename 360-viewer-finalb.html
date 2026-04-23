@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>360° Space Battle — NCC-1701</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --lcars-orange: #ff9900;
+    --lcars-blue: #9999ff;
+    --lcars-teal: #99ccff;
+    --lcars-red: #cc6666;
+    --lcars-purple: #cc88ff;
+    --bg: #000008;
+  }
+  body { background: var(--bg); color: var(--lcars-orange); font-family: 'Share Tech Mono', monospace; overflow: hidden; height: 100vh; width: 100vw; user-select: none; }
+  canvas#viewer { display: block; width: 100%; height: 100%; cursor: grab; }
+  canvas#viewer:active { cursor: grabbing; }
+  .lcars-top { position: absolute; top: 0; left: 0; right: 0; height: 56px; display: flex; align-items: stretch; pointer-events: none; z-index: 10; }
+  .lcars-top .corner-l { width: 120px; background: var(--lcars-orange); border-radius: 0 0 28px 0; flex-shrink: 0; }
+  .lcars-top .bar { flex: 1; background: var(--lcars-orange); height: 12px; align-self: flex-end; margin: 0 4px; }
+  .lcars-top .title { align-self: center; padding: 0 20px; font-family: 'Orbitron', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.2em; color: var(--lcars-orange); white-space: nowrap; }
+  .lcars-top .corner-r { width: 120px; background: var(--lcars-blue); border-radius: 0 0 0 28px; flex-shrink: 0; }
+  .lcars-bottom { position: absolute; bottom: 0; left: 0; right: 0; height: 56px; display: flex; align-items: stretch; pointer-events: none; z-index: 10; }
+  .lcars-bottom .corner-l { width: 120px; background: var(--lcars-teal); border-radius: 0 24px 0 0; flex-shrink: 0; }
+  .lcars-bottom .bar { flex: 1; background: var(--lcars-orange); height: 12px; align-self: flex-start; margin: 0 4px; }
+  .lcars-bottom .info { align-self: center; padding: 0 16px; font-size: 11px; color: var(--lcars-teal); letter-spacing: 0.12em; white-space: nowrap; }
+  .lcars-bottom .corner-r { width: 120px; background: var(--lcars-purple); border-radius: 24px 0 0 0; flex-shrink: 0; }
+  .lcars-left { position: absolute; top: 56px; bottom: 56px; left: 0; width: 80px; display: flex; flex-direction: column; gap: 4px; padding: 8px 0; pointer-events: none; z-index: 10; }
+  .lcars-right { position: absolute; top: 56px; bottom: 56px; right: 0; width: 80px; display: flex; flex-direction: column; gap: 4px; padding: 8px 0; pointer-events: none; z-index: 10; }
+  .lcars-left .blk { border-radius: 0 8px 8px 0; flex: 1; min-height: 20px; }
+  .lcars-right .blk { border-radius: 8px 0 0 8px; flex: 1; min-height: 20px; }
+  .lcars-left .blk:nth-child(1) { background: var(--lcars-orange); }
+  .lcars-left .blk:nth-child(2) { background: var(--lcars-blue); max-height: 60px; }
+  .lcars-left .blk:nth-child(3) { background: var(--lcars-red); max-height: 40px; }
+  .lcars-left .blk:nth-child(4) { background: var(--lcars-purple); max-height: 50px; }
+  .lcars-left .blk:nth-child(5) { background: var(--lcars-teal); max-height: 35px; }
+  .lcars-left .blk:nth-child(6) { background: var(--lcars-orange); }
+  .lcars-right .blk:nth-child(1) { background: var(--lcars-blue); }
+  .lcars-right .blk:nth-child(2) { background: var(--lcars-purple); max-height: 55px; }
+  .lcars-right .blk:nth-child(3) { background: var(--lcars-orange); max-height: 45px; }
+  .lcars-right .blk:nth-child(4) { background: var(--lcars-teal); max-height: 38px; }
+  .lcars-right .blk:nth-child(5) { background: var(--lcars-red); max-height: 30px; }
+  .lcars-right .blk:nth-child(6) { background: var(--lcars-blue); }
+  .hud { position: absolute; z-index: 20; pointer-events: none; font-size: 11px; letter-spacing: 0.1em; line-height: 1.9; }
+  .hud-l { top: 70px; left: 90px; color: var(--lcars-teal); }
+  .hud-r { top: 70px; right: 90px; text-align: right; }
+  .hud span.val { color: var(--lcars-orange); }
+  .hud span.ok { color: #66ff88; }
+  .hud span.warn { color: var(--lcars-red); }
+  .crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 15; pointer-events: none; opacity: 0.35; width: 32px; height: 32px; }
+  .crosshair::before, .crosshair::after { content: ''; position: absolute; background: var(--lcars-teal); }
+  .crosshair::before { width: 32px; height: 1px; top: 15px; left: 0; }
+  .crosshair::after { width: 1px; height: 32px; top: 0; left: 15px; }
+  .crosshair-dot { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 5px; height: 5px; border: 1px solid var(--lcars-teal); border-radius: 50%; }
+  .scanlines { position: absolute; inset: 0; pointer-events: none; z-index: 5; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.15} }
+  .blink { animation: blink 1.3s ease infinite; }
+  #boot { position: absolute; inset: 0; background: #000008; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+  #boot.fade { animation: bootFade 0.6s ease forwards; }
+  @keyframes bootFade { to { opacity:0; pointer-events:none; } }
+  .boot-line { font-family: 'Orbitron', monospace; font-size: 11px; letter-spacing: 0.25em; opacity: 0; animation: bootShow 0.3s ease forwards; }
+  .boot-line.big { font-size: 22px; font-weight: 900; color: var(--lcars-orange); }
+  .boot-line.sub { color: var(--lcars-teal); }
+  .boot-line.warn { color: var(--lcars-red); font-size: 13px; }
+  @keyframes bootShow { to { opacity: 1; } }
+  #hint { position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%); z-index: 20; font-size: 11px; color: rgba(153,204,255,0.55); letter-spacing: 0.15em; text-align: center; pointer-events: none; transition: opacity 1s; }
+</style>
+</head>
+<body>
+
+<div id="boot">
+  <div class="boot-line big" style="animation-delay:0.1s">U.S.S. ENTERPRISE NCC-1701</div>
+  <div class="boot-line sub" style="animation-delay:0.5s">TACTICAL DISPLAY — SECTOR 001</div>
+  <div class="boot-line sub" style="animation-delay:0.9s">MULTI-VECTOR ENGAGEMENT DETECTED · 14 CONTACTS</div>
+  <div class="boot-line warn blink" style="animation-delay:1.2s">⚠ RED ALERT — ALL HANDS TO BATTLE STATIONS ⚠</div>
+</div>
+
+<canvas id="viewer"></canvas>
+<div class="scanlines"></div>
+
+<div class="lcars-top">
+  <div class="corner-l"></div>
+  <div class="bar"></div>
+  <div class="title">TACTICAL 360° VIEWER — ACTIVE COMBAT ZONE</div>
+  <div class="bar"></div>
+  <div class="corner-r"></div>
+</div>
+<div class="lcars-left">
+  <div class="blk"></div><div class="blk"></div><div class="blk"></div>
+  <div class="blk"></div><div class="blk"></div><div class="blk"></div>
+</div>
+<div class="lcars-right">
+  <div class="blk"></div><div class="blk"></div><div class="blk"></div>
+  <div class="blk"></div><div class="blk"></div><div class="blk"></div>
+</div>
+<div class="lcars-bottom">
+  <div class="corner-l"></div>
+  <div class="bar"></div>
+  <div class="info">STARDATE 2294.7 · DRAG TO LOOK · SCROLL TO ZOOM</div>
+  <div class="bar"></div>
+  <div class="corner-r"></div>
+</div>
+
+<div class="hud hud-l">
+  HEADING: <span class="val" id="heading">000°</span><br>
+  PITCH:&nbsp;&nbsp; <span class="val" id="pitch">+00°</span><br>
+  FOV:&nbsp;&nbsp;&nbsp;&nbsp; <span class="val" id="fovval">75°</span><br>
+  CONTACTS: <span class="warn">14</span>
+</div>
+<div class="hud hud-r">
+  SHIELDS: <span class="val">87%</span><br>
+  WEAPONS: <span style="color:var(--lcars-orange)">ARMED</span><br>
+  WARP CORE: <span class="ok">NOMINAL</span><br>
+  <span class="warn blink">RED ALERT</span>
+</div>
+
+<div class="crosshair"><div class="crosshair-dot"></div></div>
+<div id="hint">DRAG TO EXPLORE · SCROLL TO ZOOM · TOUCH SUPPORTED</div>
+
+<script>
+const canvas = document.getElementById('viewer');
+const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+
+const vsSource = `
+  attribute vec2 a_pos;
+  varying vec2 v_uv;
+  void main() { v_uv = a_pos; gl_Position = vec4(a_pos, 0.0, 1.0); }
+`;
+const fsSource = `
+  precision highp float;
+  varying vec2 v_uv;
+  uniform sampler2D u_tex;
+  uniform float u_yaw, u_pitch, u_fov;
+  uniform vec2 u_res;
+  #define PI 3.14159265358979
+  mat3 rotY(float a) { float c=cos(a),s=sin(a); return mat3(c,0,s,0,1,0,-s,0,c); }
+  mat3 rotX(float a) { float c=cos(a),s=sin(a); return mat3(1,0,0,0,c,-s,0,s,c); }
+  void main() {
+    float aspect = u_res.x / u_res.y;
+    float t = tan(u_fov * PI / 360.0);
+    vec3 dir = normalize(vec3(v_uv.x * aspect * t, v_uv.y * t, -1.0));
+    dir = rotX(u_pitch) * rotY(u_yaw) * dir;
+    float lon = atan(dir.x, -dir.z);
+    float lat = asin(clamp(dir.y, -1.0, 1.0));
+    gl_FragColor = texture2D(u_tex, vec2(lon/(2.0*PI)+0.5, lat/PI+0.5));
+  }
+`;
+
+function mkShader(type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src); gl.compileShader(s); return s;
+}
+const prog = gl.createProgram();
+gl.attachShader(prog, mkShader(gl.VERTEX_SHADER, vsSource));
+gl.attachShader(prog, mkShader(gl.FRAGMENT_SHADER, fsSource));
+gl.linkProgram(prog); gl.useProgram(prog);
+
+const buf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+const aPos = gl.getAttribLocation(prog, 'a_pos');
+gl.enableVertexAttribArray(aPos);
+gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+const uYaw   = gl.getUniformLocation(prog, 'u_yaw');
+const uPitch = gl.getUniformLocation(prog, 'u_pitch');
+const uFov   = gl.getUniformLocation(prog, 'u_fov');
+const uRes   = gl.getUniformLocation(prog, 'u_res');
+
+// Load texture
+const tex = gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D, tex);
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0,0,20,255]));
+
+const img = new Image();
+img.crossOrigin = 'anonymous';
+img.onload = () => {
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+};
+img.src = 'https://raw.githubusercontent.com/michaeltorbert/startrek360viewer/main/060dbd4e-ea76-4813-8d9b-ae8dd24acf36.png';
+
+// State
+let yaw=0, pitch=0, fov=75;
+let tYaw=0, tPitch=0, tFov=75;
+let drag=false, lastX=0, lastY=0;
+let autoRot=true, autoTimer=null;
+
+function resize() {
+  canvas.width = canvas.clientWidth * devicePixelRatio;
+  canvas.height = canvas.clientHeight * devicePixelRatio;
+  gl.viewport(0, 0, canvas.width, canvas.height);
+}
+resize(); window.addEventListener('resize', resize);
+
+const resetAuto = () => { autoRot=false; clearTimeout(autoTimer); autoTimer=setTimeout(()=>autoRot=true, 4000); };
+
+canvas.addEventListener('mousedown', e => { drag=true; lastX=e.clientX; lastY=e.clientY; resetAuto(); });
+window.addEventListener('mouseup', () => drag=false);
+window.addEventListener('mousemove', e => {
+  if (!drag) return;
+  const s = fov / 1800;
+  tYaw  -= (e.clientX - lastX) * s;
+  tPitch = Math.max(-1.48, Math.min(1.48, tPitch + (e.clientY - lastY) * s));
+  lastX=e.clientX; lastY=e.clientY;
+});
+canvas.addEventListener('wheel', e => { e.preventDefault(); tFov = Math.max(30, Math.min(120, tFov + e.deltaY * 0.04)); resetAuto(); }, {passive:false});
+
+// Touch
+let lTX=0, lTY=0, lPinch=0;
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault(); resetAuto();
+  if (e.touches.length===1) { lTX=e.touches[0].clientX; lTY=e.touches[0].clientY; }
+  else if (e.touches.length===2) lPinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+}, {passive:false});
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (e.touches.length===1) {
+    const s = fov/1200;
+    tYaw  -= (e.touches[0].clientX - lTX) * s;
+    tPitch = Math.max(-1.48, Math.min(1.48, tPitch + (e.touches[0].clientY - lTY) * s));
+    lTX=e.touches[0].clientX; lTY=e.touches[0].clientY;
+  } else if (e.touches.length===2) {
+    const d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    tFov = Math.max(30, Math.min(120, tFov + (lPinch-d)*0.1));
+    lPinch=d;
+  }
+}, {passive:false});
+
+// HUD
+const hHead = document.getElementById('heading');
+const hPitch = document.getElementById('pitch');
+const hFov = document.getElementById('fovval');
+
+// Boot dismiss
+setTimeout(() => {
+  const boot = document.getElementById('boot');
+  boot.classList.add('fade');
+  setTimeout(() => boot.remove(), 700);
+}, 2200);
+
+// Hint fade
+setTimeout(() => { document.getElementById('hint').style.opacity = '0'; }, 5000);
+
+function lerp(a,b,t) { return a+(b-a)*t; }
+
+function render() {
+  requestAnimationFrame(render);
+  if (autoRot) tYaw += 0.0008;
+  yaw   = lerp(yaw,   tYaw,   0.08);
+  pitch = lerp(pitch, tPitch, 0.08);
+  fov   = lerp(fov,   tFov,   0.08);
+
+  gl.uniform1f(uYaw, yaw);
+  gl.uniform1f(uPitch, pitch);
+  gl.uniform1f(uFov, fov);
+  gl.uniform2f(uRes, canvas.width, canvas.height);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+  const deg = (((yaw*180/Math.PI)%360)+360)%360;
+  hHead.textContent  = deg.toFixed(0).padStart(3,'0')+'°';
+  const pd = pitch*180/Math.PI;
+  hPitch.textContent = (pd>=0?'+':'')+pd.toFixed(0).padStart(2,'0')+'°';
+  hFov.textContent   = fov.toFixed(0)+'°';
+}
+render();
+</script>
+</body>
+</html>
