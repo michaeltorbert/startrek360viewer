@@ -64,6 +64,9 @@
   .panorama-option.is-active::before { width: 26px; }
   .panorama-option.is-active img { opacity: 1; filter: saturate(1.12) contrast(1.08); }
   .panorama-option.is-active span { color: #ffffff; }
+  .panorama-option.is-error { box-shadow: 0 0 0 1px rgba(204,102,102,0.75), 0 12px 26px rgba(0,0,0,0.5); }
+  .panorama-option.is-error::before { background: var(--lcars-red); }
+  .panorama-option.is-error span { color: #ffb5b5; }
   .crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 15; pointer-events: none; opacity: 0.35; width: 32px; height: 32px; }
   .crosshair::before, .crosshair::after { content: ''; position: absolute; background: var(--lcars-teal); }
   .crosshair::before { width: 32px; height: 1px; top: 15px; left: 0; }
@@ -81,6 +84,8 @@
   .boot-line.warn { color: var(--lcars-red); font-size: 13px; }
   @keyframes bootShow { to { opacity: 1; } }
   #hint { position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%); z-index: 20; font-size: 11px; color: rgba(153,204,255,0.55); letter-spacing: 0.15em; text-align: center; pointer-events: none; transition: opacity 1s; }
+  #status { position: absolute; left: 50%; bottom: 126px; transform: translateX(-50%); z-index: 35; max-width: min(90vw, 560px); padding: 10px 14px; border: 1px solid rgba(204,102,102,0.6); background: rgba(12,0,0,0.88); color: #ffb5b5; font-size: 11px; letter-spacing: 0.08em; text-align: center; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
+  #status.is-visible { opacity: 1; }
   .fallback { position: absolute; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: #000008; padding: 24px; text-align: center; }
   .fallback-inner { max-width: 520px; border: 1px solid rgba(153,204,255,0.45); padding: 24px; color: var(--lcars-teal); font-family: 'Share Tech Mono', monospace; line-height: 1.6; }
   .fallback-title { color: var(--lcars-orange); font-family: 'Orbitron', monospace; font-size: 14px; font-weight: 700; letter-spacing: 0.18em; margin-bottom: 12px; }
@@ -98,16 +103,17 @@
     .panorama-option::before { width: 16px; }
     .panorama-option.is-active::before { width: 20px; }
     .panorama-option span { left: 28px; right: 10px; bottom: 7px; font-size: 9px; }
+    #status { bottom: 152px; font-size: 10px; }
   }
 </style>
 </head>
 <body>
 
 <div id="boot">
-  <div class="boot-line big" style="animation-delay:0.1s">U.S.S. ENTERPRISE NCC-1701</div>
-  <div class="boot-line sub" style="animation-delay:0.5s">TACTICAL DISPLAY — SECTOR 001</div>
-  <div class="boot-line sub" style="animation-delay:0.9s">MULTI-VECTOR ENGAGEMENT DETECTED · 14 CONTACTS</div>
-  <div class="boot-line warn blink" style="animation-delay:1.2s">⚠ RED ALERT — ALL HANDS TO BATTLE STATIONS ⚠</div>
+  <div class="boot-line big" id="bootTitle" style="animation-delay:0.1s">U.S.S. ENTERPRISE NCC-1701</div>
+  <div class="boot-line sub" id="bootSubhead" style="animation-delay:0.5s">TACTICAL DISPLAY — SECTOR 001</div>
+  <div class="boot-line sub" id="bootContext" style="animation-delay:0.9s">MULTI-VECTOR ENGAGEMENT DETECTED · 14 CONTACTS</div>
+  <div class="boot-line warn blink" id="bootAlert" style="animation-delay:1.2s">⚠ RED ALERT — ALL HANDS TO BATTLE STATIONS ⚠</div>
 </div>
 
 <canvas id="viewer"></canvas>
@@ -116,7 +122,7 @@
 <div class="lcars-top">
   <div class="corner-l"></div>
   <div class="bar"></div>
-  <div class="title">TACTICAL 360° VIEWER — ACTIVE COMBAT ZONE</div>
+  <div class="title" id="viewerTitle">TACTICAL 360° VIEWER — ACTIVE COMBAT ZONE</div>
   <div class="bar"></div>
   <div class="corner-r"></div>
 </div>
@@ -131,7 +137,7 @@
 <div class="lcars-bottom">
   <div class="corner-l"></div>
   <div class="bar"></div>
-  <div class="info">STARDATE 2294.7 · DRAG TO LOOK · SCROLL TO ZOOM</div>
+  <div class="info" id="viewerInfo">STARDATE 2294.7 · DRAG TO LOOK · SCROLL TO ZOOM</div>
   <div class="bar"></div>
   <div class="corner-r"></div>
 </div>
@@ -143,16 +149,17 @@
   CONTACTS: <span class="warn" id="contactCount">14</span>
 </div>
 <div class="hud hud-r">
-  SHIELDS: <span class="val">87%</span><br>
-  WEAPONS: <span style="color:var(--lcars-orange)">ARMED</span><br>
-  WARP CORE: <span class="ok">NOMINAL</span><br>
-  <span class="warn blink">RED ALERT</span>
+  <span id="hudRightLine1">SHIELDS: <span class="val">87%</span></span><br>
+  <span id="hudRightLine2">WEAPONS: <span style="color:var(--lcars-orange)">ARMED</span></span><br>
+  <span id="hudRightLine3">WARP CORE: <span class="ok">NOMINAL</span></span><br>
+  <span class="warn blink" id="hudRightLine4">RED ALERT</span>
 </div>
 
 <div class="crosshair"><div class="crosshair-dot"></div></div>
 <div class="image-selector" id="imageSelector" aria-label="Select 360 image">
   <div class="selector-heading"><span>VIEW BANK</span></div>
 </div>
+<div id="status" role="status" aria-live="polite"></div>
 <div id="hint">DRAG TO EXPLORE · SCROLL TO ZOOM · TOUCH SUPPORTED</div>
 
 <script>
@@ -242,18 +249,93 @@ const uPitch = gl.getUniformLocation(prog, 'u_pitch');
 const uFov   = gl.getUniformLocation(prog, 'u_fov');
 const uRes   = gl.getUniformLocation(prog, 'u_res');
 
+const SCENE_THEMES = {
+  tactical: {
+    bootTitle: 'U.S.S. ENTERPRISE NCC-1701',
+    bootSubhead: 'TACTICAL DISPLAY — SECTOR 001',
+    bootContext: contacts => `MULTI-VECTOR ENGAGEMENT DETECTED · ${contacts} CONTACTS`,
+    bootAlert: '⚠ RED ALERT — ALL HANDS TO BATTLE STATIONS ⚠',
+    viewerTitle: 'TACTICAL 360° VIEWER — ACTIVE COMBAT ZONE',
+    viewerInfo: 'STARDATE 2294.7 · DRAG TO LOOK · SCROLL TO ZOOM',
+    hudRight: [
+      'SHIELDS: <span class="val">87%</span>',
+      'WEAPONS: <span style="color:var(--lcars-orange)">ARMED</span>',
+      'WARP CORE: <span class="ok">NOMINAL</span>',
+      'RED ALERT',
+    ],
+  },
+  academy: {
+    bootTitle: 'STARFLEET ARCHIVE NODE',
+    bootSubhead: 'CAMPUS SURVEY MODE — SAN FRANCISCO',
+    bootContext: contacts => `CADET ACTIVITY INDEX · ${contacts} REGISTERED READINGS`,
+    bootAlert: 'ORIENTATION GRID ONLINE',
+    viewerTitle: 'STARFLEET CAMPUS SCAN — TRAINING DISTRICT',
+    viewerInfo: 'STARDATE 2294.7 · DRAG TO LOOK · SCROLL TO ZOOM',
+    hudRight: [
+      'TRAFFIC: <span class="val">MODERATE</span>',
+      'ACCESS: <span class="ok">OPEN</span>',
+      'SENSORS: <span class="ok">MAPPING</span>',
+      'ACADEMY NETWORK',
+    ],
+  },
+  anomaly: {
+    bootTitle: 'LONG RANGE SENSOR GRID',
+    bootSubhead: 'ANOMALY RECONSTRUCTION MODE',
+    bootContext: contacts => `UNCLASSIFIED ENERGY SIGNATURES · ${contacts} TRACKED EVENTS`,
+    bootAlert: 'OBSERVATION PROTOCOLS ACTIVE',
+    viewerTitle: 'ANOMALY SCAN — UNRESOLVED PHENOMENA',
+    viewerInfo: 'STARDATE 2294.7 · DRAG TO LOOK · SCROLL TO ZOOM',
+    hudRight: [
+      'SENSORS: <span class="val">AMPLIFIED</span>',
+      'STABILITY: <span class="warn">VARIABLE</span>',
+      'FILTERS: <span class="ok">ADAPTIVE</span>',
+      'FIELD NOTE: ODD',
+    ],
+  },
+  archive: {
+    bootTitle: 'FEDERATION CULTURAL ARCHIVE',
+    bootSubhead: 'CIVILIAN RECORD REVIEW',
+    bootContext: contacts => `SCENE INDEX READY · ${contacts} POINTS OF INTEREST`,
+    bootAlert: 'ARCHIVAL OVERLAY STABLE',
+    viewerTitle: 'LCARS PANORAMA ARCHIVE — PUBLIC SPACES',
+    viewerInfo: 'STARDATE 2294.7 · DRAG TO LOOK · SCROLL TO ZOOM',
+    hudRight: [
+      'STATUS: <span class="ok">CATALOGED</span>',
+      'ACCESS: <span class="val">PUBLIC</span>',
+      'RECORD: <span class="ok">STABLE</span>',
+      'ARCHIVE MODE',
+    ],
+  },
+  entertainment: {
+    bootTitle: 'HOLONET EVENT CAPTURE',
+    bootSubhead: 'LIVE VENUE PRESENTATION MODE',
+    bootContext: contacts => `AUDIENCE AND STAGE READS · ${contacts} ACTIVE MARKERS`,
+    bootAlert: 'PROGRAM FEED LOCKED',
+    viewerTitle: 'EVENT PANORAMA — PERFORMANCE SPACE',
+    viewerInfo: 'STARDATE 2294.7 · DRAG TO LOOK · SCROLL TO ZOOM',
+    hudRight: [
+      'LIGHTING: <span class="val">LIVE</span>',
+      'AUDIO: <span class="ok">MONITORED</span>',
+      'CROWD: <span class="val">ENGAGED</span>',
+      'SHOWTIME',
+    ],
+  },
+};
+
 const PANORAMAS = [
   {
     name: 'Sector 215 Battle',
     file: 'sector-215-battle.png',
     contacts: '14',
     accent: '#ff9900',
+    theme: 'tactical',
   },
   {
     name: 'Star Fleet Academy',
     file: 'starfleet-academy.png',
     contacts: '14',
     accent: '#99ccff',
+    theme: 'academy',
     flipX: true,
   },
   {
@@ -261,6 +343,7 @@ const PANORAMAS = [
     file: 'ferengi-rules-of-acquisition-school.png',
     contacts: '34',
     accent: '#cc88ff',
+    theme: 'archive',
     flipX: true,
   },
   {
@@ -268,6 +351,7 @@ const PANORAMAS = [
     file: 'q-game-show.png',
     contacts: '49',
     accent: '#cc88ff',
+    theme: 'anomaly',
     flipX: true,
   },
   {
@@ -275,6 +359,7 @@ const PANORAMAS = [
     file: 'starfleet-lower-decks-talent-show.png',
     contacts: '27',
     accent: '#9999ff',
+    theme: 'entertainment',
     flipX: true,
   },
   {
@@ -282,6 +367,7 @@ const PANORAMAS = [
     file: 'delta-quadrant-science-fair.png',
     contacts: '86',
     accent: '#99ccff',
+    theme: 'academy',
     flipX: true,
   },
   {
@@ -289,6 +375,7 @@ const PANORAMAS = [
     file: 'captains-log-podcast.png',
     contacts: '12',
     accent: '#ff9900',
+    theme: 'entertainment',
     flipX: true,
   },
   {
@@ -296,6 +383,7 @@ const PANORAMAS = [
     file: 'transporter-lost-and-found-office.png',
     contacts: '18',
     accent: '#cc6666',
+    theme: 'archive',
     flipX: true,
   },
   {
@@ -303,6 +391,7 @@ const PANORAMAS = [
     file: 'deep-space-chess-championship.png',
     contacts: '73',
     accent: '#9999ff',
+    theme: 'entertainment',
     flipX: true,
   },
   {
@@ -310,6 +399,7 @@ const PANORAMAS = [
     file: 'quarks-used-starship-lot.png',
     contacts: '41',
     accent: '#ff9900',
+    theme: 'archive',
     flipX: true,
   },
   {
@@ -317,6 +407,7 @@ const PANORAMAS = [
     file: 'lower-decks-talent-night.png',
     contacts: '22',
     accent: '#cc88ff',
+    theme: 'entertainment',
     flipX: true,
   },
 ];
@@ -332,7 +423,35 @@ gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
 const imageSelector = document.getElementById('imageSelector');
 const contactCount = document.getElementById('contactCount');
+const statusEl = document.getElementById('status');
+const bootTitleEl = document.getElementById('bootTitle');
+const bootSubheadEl = document.getElementById('bootSubhead');
+const bootContextEl = document.getElementById('bootContext');
+const bootAlertEl = document.getElementById('bootAlert');
+const viewerTitleEl = document.getElementById('viewerTitle');
+const viewerInfoEl = document.getElementById('viewerInfo');
+const hudRightEls = [
+  document.getElementById('hudRightLine1'),
+  document.getElementById('hudRightLine2'),
+  document.getElementById('hudRightLine3'),
+  document.getElementById('hudRightLine4'),
+];
 let activeImageToken = 0;
+let statusTimeout = 0;
+let activePanoramaIndex = -1;
+const failedPanoramas = new Set();
+
+function setStatus(message) {
+  if (!statusEl) return;
+  statusEl.textContent = message || '';
+  statusEl.classList.toggle('is-visible', Boolean(message));
+  window.clearTimeout(statusTimeout);
+  if (message) {
+    statusTimeout = window.setTimeout(() => {
+      statusEl.classList.remove('is-visible');
+    }, 4000);
+  }
+}
 
 function getTextureSource(img, panorama) {
   if (!panorama.flipX) return img;
@@ -346,6 +465,20 @@ function getTextureSource(img, panorama) {
   return work;
 }
 
+function applySceneTheme(panorama) {
+  const theme = SCENE_THEMES[panorama.theme] || SCENE_THEMES.tactical;
+  if (bootTitleEl) bootTitleEl.textContent = theme.bootTitle;
+  if (bootSubheadEl) bootSubheadEl.textContent = theme.bootSubhead;
+  if (bootContextEl) bootContextEl.textContent = theme.bootContext(panorama.contacts);
+  if (bootAlertEl) bootAlertEl.textContent = theme.bootAlert;
+  if (viewerTitleEl) viewerTitleEl.textContent = theme.viewerTitle;
+  if (viewerInfoEl) viewerInfoEl.textContent = theme.viewerInfo;
+  theme.hudRight.forEach((line, index) => {
+    const el = hudRightEls[index];
+    if (el) el.innerHTML = line;
+  });
+}
+
 function loadPanorama(index) {
   const panorama = PANORAMAS[index];
   if (!panorama) return;
@@ -355,13 +488,30 @@ function loadPanorama(index) {
     if (token !== activeImageToken) return;
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, getTextureSource(img, panorama));
+    activePanoramaIndex = index;
+    failedPanoramas.delete(index);
+    applySceneTheme(panorama);
     if (contactCount && panorama.contacts) contactCount.textContent = panorama.contacts;
+    setStatus('');
+    syncPanoramaOptions();
   };
-  img.onerror = () => showFallback(`Unable to load panorama image: ${panorama.file}`);
+  img.onerror = () => {
+    if (token !== activeImageToken) return;
+    failedPanoramas.add(index);
+    setStatus(`Unable to load ${panorama.name}. Keeping current panorama active.`);
+    syncPanoramaOptions();
+  };
   img.src = panorama.file;
+}
+
+function syncPanoramaOptions() {
   document.querySelectorAll('.panorama-option').forEach((option, optionIndex) => {
-    option.classList.toggle('is-active', optionIndex === index);
-    option.setAttribute('aria-pressed', optionIndex === index ? 'true' : 'false');
+    const isActive = optionIndex === activePanoramaIndex;
+    const isError = failedPanoramas.has(optionIndex);
+    option.classList.toggle('is-active', isActive);
+    option.classList.toggle('is-error', isError);
+    option.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    option.setAttribute('aria-invalid', isError ? 'true' : 'false');
   });
 }
 
@@ -396,8 +546,9 @@ const PITCH_LIMIT = Math.PI/2 - 0.05;
 const FOV_MIN = 25, FOV_MAX = 110;
 
 function resize() {
-  canvas.width = canvas.clientWidth * devicePixelRatio;
-  canvas.height = canvas.clientHeight * devicePixelRatio;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.max(1, Math.round(canvas.clientWidth * dpr));
+  canvas.height = Math.max(1, Math.round(canvas.clientHeight * dpr));
   gl.viewport(0, 0, canvas.width, canvas.height);
 }
 resize(); window.addEventListener('resize', resize);
