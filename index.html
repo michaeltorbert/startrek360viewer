@@ -16,8 +16,11 @@
     --bg: #000008;
   }
   body { background: var(--bg); color: var(--lcars-orange); font-family: 'Share Tech Mono', monospace; overflow: hidden; height: 100vh; width: 100vw; user-select: none; }
-  canvas#viewer { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
-  canvas#viewer:active { cursor: grabbing; }
+  canvas#viewer, canvas#splat-canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; position: absolute; inset: 0; }
+  canvas#viewer:active, canvas#splat-canvas:active { cursor: grabbing; }
+  canvas#splat-canvas { display: none; }
+  body[data-mode="splat"] canvas#viewer { display: none; }
+  body[data-mode="splat"] canvas#splat-canvas { display: block; }
   .lcars-top { position: absolute; top: 0; left: 0; right: 0; height: 56px; display: flex; align-items: stretch; pointer-events: none; z-index: 10; }
   .lcars-top .corner-l { width: 120px; background: var(--lcars-orange); border-radius: 0 0 28px 0; flex-shrink: 0; }
   .lcars-top .bar { flex: 1; background: var(--lcars-orange); height: 12px; align-self: flex-end; margin: 0 4px; }
@@ -67,6 +70,13 @@
   .boot-line.warn { color: var(--lcars-red); font-size: 13px; }
   @keyframes bootShow { to { opacity: 1; } }
   #hint { position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%); z-index: 20; font-size: 11px; color: rgba(153,204,255,0.55); letter-spacing: 0.15em; text-align: center; pointer-events: none; transition: opacity 1s; }
+  #mode-toggle { position: absolute; top: 16px; right: 140px; z-index: 30; background: var(--lcars-red); color: #000; border: none; border-radius: 14px; padding: 6px 18px; font-family: 'Orbitron', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.22em; cursor: pointer; pointer-events: auto; transition: background 0.15s; }
+  #mode-toggle:hover { background: var(--lcars-orange); }
+  #splat-loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 25; color: var(--lcars-teal); font-family: 'Orbitron', monospace; font-size: 13px; letter-spacing: 0.22em; text-align: center; pointer-events: none; text-shadow: 0 0 12px rgba(153,204,255,0.5); }
+  body[data-mode="splat"] .hud-l .panorama-only,
+  body[data-mode="splat"] .hud-r .panorama-only { display: none; }
+  body:not([data-mode="splat"]) .hud-l .splat-only,
+  body:not([data-mode="splat"]) .hud-r .splat-only { display: none; }
 </style>
 </head>
 <body>
@@ -79,12 +89,15 @@
 </div>
 
 <canvas id="viewer"></canvas>
+<canvas id="splat-canvas"></canvas>
+<div id="splat-loading" style="display:none">INITIALIZING TRANSPORTER SCAN…</div>
+<button id="mode-toggle" type="button">MODE: PANORAMA ⇄</button>
 <div class="scanlines"></div>
 
 <div class="lcars-top">
   <div class="corner-l"></div>
   <div class="bar"></div>
-  <div class="title">TACTICAL 360° VIEWER — ACTIVE COMBAT ZONE</div>
+  <div class="title" id="lcars-title">TACTICAL 360° VIEWER — ACTIVE COMBAT ZONE</div>
   <div class="bar"></div>
   <div class="corner-r"></div>
 </div>
@@ -99,22 +112,38 @@
 <div class="lcars-bottom">
   <div class="corner-l"></div>
   <div class="bar"></div>
-  <div class="info">STARDATE 2294.7 · DRAG TO LOOK · SCROLL TO ZOOM</div>
+  <div class="info" id="lcars-info">STARDATE 2294.7 · DRAG TO LOOK · SCROLL TO ZOOM</div>
   <div class="bar"></div>
   <div class="corner-r"></div>
 </div>
 
 <div class="hud hud-l">
-  HEADING: <span class="val" id="heading">000°</span><br>
-  PITCH:&nbsp;&nbsp; <span class="val" id="pitch">+00°</span><br>
-  FOV:&nbsp;&nbsp;&nbsp;&nbsp; <span class="val" id="fovval">75°</span><br>
-  CONTACTS: <span class="warn">14</span>
+  <span class="panorama-only">
+    HEADING: <span class="val" id="heading">000°</span><br>
+    PITCH:&nbsp;&nbsp; <span class="val" id="pitch">+00°</span><br>
+    FOV:&nbsp;&nbsp;&nbsp;&nbsp; <span class="val" id="fovval">75°</span><br>
+    CONTACTS: <span class="warn">14</span>
+  </span>
+  <span class="splat-only">
+    SCAN:&nbsp;&nbsp;&nbsp;&nbsp; <span class="val">ML-SHARP</span><br>
+    SOURCE:&nbsp;&nbsp; <span class="val">MONOCULAR</span><br>
+    GAUSSIANS: <span class="val">781,250</span><br>
+    DEPTH:&nbsp;&nbsp;&nbsp; <span class="ok">NOMINAL</span>
+  </span>
 </div>
 <div class="hud hud-r">
-  SHIELDS: <span class="val">87%</span><br>
-  WEAPONS: <span style="color:var(--lcars-orange)">ARMED</span><br>
-  WARP CORE: <span class="ok">NOMINAL</span><br>
-  <span class="warn blink">RED ALERT</span>
+  <span class="panorama-only">
+    SHIELDS: <span class="val">87%</span><br>
+    WEAPONS: <span style="color:var(--lcars-orange)">ARMED</span><br>
+    WARP CORE: <span class="ok">NOMINAL</span><br>
+    <span class="warn blink">RED ALERT</span>
+  </span>
+  <span class="splat-only">
+    SUBJECT: <span class="val">LOST &amp; FOUND</span><br>
+    SECTOR:&nbsp; <span class="val">TRANSPORTER</span><br>
+    FIELD:&nbsp;&nbsp; <span class="ok">COHERENT</span><br>
+    <span style="color:var(--lcars-purple)">VOLUMETRIC</span>
+  </span>
 </div>
 
 <div class="crosshair"><div class="crosshair-dot"></div></div>
@@ -278,6 +307,7 @@ let lastT = performance.now();
 
 function render(now) {
   requestAnimationFrame(render);
+  if (document.body.dataset.mode === 'splat') { lastT = now; return; }
   const dt = Math.min(0.05, (now - lastT) / 1000);
   lastT = now;
 
@@ -312,6 +342,95 @@ function render(now) {
   hFov.textContent   = fov.toFixed(0)+'°';
 }
 requestAnimationFrame(render);
+
+// === Splat mode (ML-SHARP Gaussian Splat viewer) ======================
+const modeBtn = document.getElementById('mode-toggle');
+const splatCanvas = document.getElementById('splat-canvas');
+const splatLoading = document.getElementById('splat-loading');
+const lcarsTitle = document.getElementById('lcars-title');
+const lcarsInfo = document.getElementById('lcars-info');
+
+const TITLES = {
+  panorama: 'TACTICAL 360° VIEWER — ACTIVE COMBAT ZONE',
+  splat:    'VOLUMETRIC SCAN — TRANSPORTER LOST &amp; FOUND',
+};
+const INFOS = {
+  panorama: 'STARDATE 2294.7 · DRAG TO LOOK · SCROLL TO ZOOM',
+  splat:    'STARDATE 2294.7 · DRAG TO ORBIT · SCROLL TO ZOOM · ML-SHARP RECONSTRUCTION',
+};
+
+let splatInited = false;
+let splatInitPromise = null;
+
+function sizeSplatCanvas() {
+  splatCanvas.width = splatCanvas.clientWidth * devicePixelRatio;
+  splatCanvas.height = splatCanvas.clientHeight * devicePixelRatio;
+}
+
+async function initSplat() {
+  splatLoading.style.display = 'block';
+  splatLoading.textContent = 'LOADING VOLUMETRIC DATA · 0%';
+  sizeSplatCanvas();
+  let SPLAT;
+  try {
+    SPLAT = await import('https://cdn.jsdelivr.net/npm/gsplat/+esm');
+  } catch (e) {
+    splatLoading.textContent = 'FAILED TO LOAD SPLAT RENDERER';
+    console.error(e);
+    throw e;
+  }
+
+  const scene = new SPLAT.Scene();
+  const camera = new SPLAT.Camera();
+  const renderer = new SPLAT.WebGLRenderer(splatCanvas);
+  const controls = new SPLAT.OrbitControls(camera, splatCanvas);
+
+  // SHARP world frame: scene in front of origin at +z. Start roughly at the
+  // original hero-view camera position and look forward.
+  camera.position = new SPLAT.Vector3(0, 0, -0.2);
+  controls.target = new SPLAT.Vector3(0, 0, 1.0);
+  controls.minDistance = 0.5;
+  controls.maxDistance = 6.0;
+
+  try {
+    await SPLAT.Loader.LoadAsync('transporter.splat', scene, (p) => {
+      splatLoading.textContent = `LOADING VOLUMETRIC DATA · ${(p * 100).toFixed(0)}%`;
+    });
+  } catch (e) {
+    splatLoading.textContent = 'FAILED TO LOAD transporter.splat';
+    console.error(e);
+    throw e;
+  }
+  splatLoading.style.display = 'none';
+
+  function splatFrame() {
+    requestAnimationFrame(splatFrame);
+    if (document.body.dataset.mode !== 'splat') return;
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  requestAnimationFrame(splatFrame);
+  window.addEventListener('resize', sizeSplatCanvas);
+  splatInited = true;
+}
+
+function applyMode(next) {
+  document.body.dataset.mode = next;
+  modeBtn.textContent = next === 'splat' ? 'MODE: SPLAT ⇄' : 'MODE: PANORAMA ⇄';
+  lcarsTitle.innerHTML = TITLES[next];
+  lcarsInfo.textContent = INFOS[next];
+  if (next === 'splat' && !splatInited && !splatInitPromise) {
+    splatInitPromise = initSplat().catch(() => { splatInitPromise = null; });
+  }
+}
+
+modeBtn.addEventListener('click', () => {
+  const current = document.body.dataset.mode || 'panorama';
+  applyMode(current === 'panorama' ? 'splat' : 'panorama');
+});
+
+// Default mode.
+document.body.dataset.mode = 'panorama';
 </script>
 </body>
 </html>
