@@ -386,10 +386,10 @@ async function initSplat() {
   const renderer = new SPLAT.WebGLRenderer(splatCanvas);
   const controls = new SPLAT.OrbitControls(camera, splatCanvas);
 
-  // SHARP world frame: scene in front of origin at +z. Start roughly at the
-  // original hero-view camera position and look forward.
-  camera.position = new SPLAT.Vector3(0, 0, -0.2);
-  controls.target = new SPLAT.Vector3(0, 0, 1.0);
+  // Splat is baked in OpenGL convention (y up, -z forward). The "hero" view
+  // originally faced +z in SHARP; after the OpenCV→OpenGL flip it's at -z.
+  camera.position = new SPLAT.Vector3(0, 0, 0.2);
+  controls.target = new SPLAT.Vector3(0, 0, -1.0);
   controls.minDistance = 0.5;
   controls.maxDistance = 6.0;
 
