@@ -202,13 +202,15 @@ const fsSource = `
   uniform float u_yaw, u_pitch, u_fov;
   uniform vec2 u_res;
   #define PI 3.14159265358979
-  mat3 rotY(float a) { float c=cos(a),s=sin(a); return mat3(c,0,s,0,1,0,-s,0,c); }
-  mat3 rotX(float a) { float c=cos(a),s=sin(a); return mat3(1,0,0,0,c,-s,0,s,c); }
   void main() {
     float aspect = u_res.x / u_res.y;
     float t = tan(u_fov * PI / 360.0);
-    vec3 dir = normalize(vec3(v_uv.x * aspect * t, v_uv.y * t, -1.0));
-    dir = rotX(u_pitch) * rotY(u_yaw) * dir;
+    float sy = sin(u_yaw), cy = cos(u_yaw);
+    float sp = sin(u_pitch), cp = cos(u_pitch);
+    vec3 forward = normalize(vec3(sy * cp, -sp, -cy * cp));
+    vec3 right = normalize(vec3(cy, 0.0, sy));
+    vec3 up = normalize(cross(right, forward));
+    vec3 dir = normalize(right * v_uv.x * aspect * t + up * v_uv.y * t + forward);
     float lon = atan(dir.x, -dir.z);
     float lat = asin(clamp(dir.y, -1.0, 1.0));
     gl_FragColor = texture2D(u_tex, vec2(0.5-lon/(2.0*PI), lat/PI+0.5));
@@ -543,7 +545,18 @@ let tYaw=0, tPitch=0, tFov=75;
 let yawVel=0, pitchVel=0;
 let autoRot=true;
 const PITCH_LIMIT = Math.PI/2 - 0.05;
-const FOV_MIN = 25, FOV_MAX = 110;
+const FOV_MIN = 20, FOV_MAX = 110;
+const MOTION_FPS = 60;
+const POINTER_SENSITIVITY = 1 / 2600;
+const DRAG_VELOCITY = 0.35;
+const INERTIA_DECAY = 0.88;
+const AUTO_ROTATE_STEP = 0.0015;
+const YAW_EASE = 0.08;
+const PITCH_EASE = 0.09;
+const FOV_EASE = 0.10;
+const STALE_RELEASE_MS = 60;
+const VELOCITY_EPSILON = 0.001;
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 function resize() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -557,7 +570,8 @@ const stopAuto = () => { autoRot = false; };
 
 // Unified pointer input (mouse, touch, pen) with capture + pinch-zoom
 const pointers = new Map();
-let pinchDist = 0;
+let pinchStartDist = 0;
+let pinchStartFov = 75;
 
 canvas.addEventListener('pointerdown', e => {
   canvas.setPointerCapture(e.pointerId);
@@ -566,7 +580,8 @@ canvas.addEventListener('pointerdown', e => {
   stopAuto();
   if (pointers.size === 2) {
     const [a, b] = [...pointers.values()];
-    pinchDist = Math.hypot(a.x - b.x, a.y - b.y);
+    pinchStartDist = Math.hypot(a.x - b.x, a.y - b.y);
+    pinchStartFov = tFov;
   }
 });
 
@@ -576,29 +591,34 @@ canvas.addEventListener('pointermove', e => {
   const dx = e.clientX - p.x;
   const dy = e.clientY - p.y;
   const dt = Math.max(1, e.timeStamp - p.t) / 1000;
-  p.x = e.clientX; p.y = e.clientY; p.t = e.timeStamp;
+  p.x = e.clientX;
+  p.y = e.clientY;
+  p.t = e.timeStamp;
 
   if (pointers.size === 1) {
-    const s = (fov * Math.PI / 180) / canvas.clientHeight;
-    tYaw   -= dx * s;
-    tPitch  = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, tPitch + dy * s));
-    yawVel   = -dx * s / dt;
-    pitchVel =  dy * s / dt;
+    const s = fov * POINTER_SENSITIVITY;
+    const yawDelta = -dx * s;
+    const pitchDelta = dy * s;
+    tYaw   += yawDelta;
+    tPitch  = clamp(tPitch + pitchDelta, -PITCH_LIMIT, PITCH_LIMIT);
+    yawVel   = yawDelta * DRAG_VELOCITY / dt;
+    pitchVel = pitchDelta * DRAG_VELOCITY / dt;
   } else if (pointers.size === 2) {
     const pts = [...pointers.values()];
     const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-    if (pinchDist > 0 && d > 0) {
-      tFov = Math.max(FOV_MIN, Math.min(FOV_MAX, tFov * (pinchDist / d)));
+    if (pinchStartDist > 0 && d > 0) {
+      tFov = clamp(pinchStartFov * (pinchStartDist / d), FOV_MIN, FOV_MAX);
     }
-    pinchDist = d;
   }
 });
 
 function endPointer(e) {
   const p = pointers.get(e.pointerId);
-  if (p && e.timeStamp - p.t > 60) { yawVel = 0; pitchVel = 0; }
+  if (p && e.timeStamp - p.t > STALE_RELEASE_MS) {
+    yawVel = pitchVel = 0;
+  }
   pointers.delete(e.pointerId);
-  if (pointers.size < 2) pinchDist = 0;
+  if (pointers.size < 2) pinchStartDist = 0;
 }
 canvas.addEventListener('pointerup', endPointer);
 canvas.addEventListener('pointercancel', endPointer);
@@ -606,8 +626,13 @@ canvas.addEventListener('pointercancel', endPointer);
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
   stopAuto();
-  tFov = Math.max(FOV_MIN, Math.min(FOV_MAX, tFov * Math.exp(e.deltaY * 0.0015)));
+  tFov = clamp(tFov * Math.exp(e.deltaY * 0.0015), FOV_MIN, FOV_MAX);
 }, {passive:false});
+
+canvas.addEventListener('dblclick', () => {
+  autoRot = !autoRot;
+  yawVel = pitchVel = 0;
+});
 
 // HUD
 const hHead = document.getElementById('heading');
@@ -631,24 +656,26 @@ function render(now) {
   requestAnimationFrame(render);
   const dt = Math.min(0.05, (now - lastT) / 1000);
   lastT = now;
+  const frameScale = dt * MOTION_FPS;
 
-  if (autoRot) tYaw += 0.05 * dt;
+  if (autoRot && pointers.size === 0) tYaw += AUTO_ROTATE_STEP * frameScale;
 
   if (pointers.size === 0 && (yawVel || pitchVel)) {
-    tYaw   += yawVel   * dt;
-    tPitch  = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, tPitch + pitchVel * dt));
-    const decay = Math.exp(-3.0 * dt);
+    tYaw   += yawVel * dt;
+    tPitch  = clamp(tPitch + pitchVel * dt, -PITCH_LIMIT, PITCH_LIMIT);
+    const decay = Math.pow(INERTIA_DECAY, frameScale);
     yawVel   *= decay;
     pitchVel *= decay;
-    if (Math.abs(yawVel)   < 0.001) yawVel   = 0;
-    if (Math.abs(pitchVel) < 0.001) pitchVel = 0;
+    if (Math.abs(yawVel)   < VELOCITY_EPSILON) yawVel   = 0;
+    if (Math.abs(pitchVel) < VELOCITY_EPSILON) pitchVel = 0;
   }
 
-  const kMove = 1 - Math.exp(-18 * dt);
-  const kZoom = 1 - Math.exp(-12 * dt);
-  yaw   = lerp(yaw,   tYaw,   kMove);
-  pitch = lerp(pitch, tPitch, kMove);
-  fov   = lerp(fov,   tFov,   kZoom);
+  const kYaw = 1 - Math.pow(1 - YAW_EASE, frameScale);
+  const kPitch = 1 - Math.pow(1 - PITCH_EASE, frameScale);
+  const kFov = 1 - Math.pow(1 - FOV_EASE, frameScale);
+  yaw   = lerp(yaw,   tYaw,   kYaw);
+  pitch = lerp(pitch, tPitch, kPitch);
+  fov   = lerp(fov,   tFov,   kFov);
 
   gl.uniform1f(uYaw, yaw);
   gl.uniform1f(uPitch, pitch);
