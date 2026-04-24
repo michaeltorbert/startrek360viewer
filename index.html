@@ -70,8 +70,9 @@
   .boot-line.warn { color: var(--lcars-red); font-size: 13px; }
   @keyframes bootShow { to { opacity: 1; } }
   #hint { position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%); z-index: 20; font-size: 11px; color: rgba(153,204,255,0.55); letter-spacing: 0.15em; text-align: center; pointer-events: none; transition: opacity 1s; }
-  #mode-toggle { position: absolute; top: 16px; right: 140px; z-index: 30; background: var(--lcars-red); color: #000; border: none; border-radius: 14px; padding: 6px 18px; font-family: 'Orbitron', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.22em; cursor: pointer; pointer-events: auto; transition: background 0.15s; }
-  #mode-toggle:hover { background: var(--lcars-orange); }
+  #mode-toggle { position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%); z-index: 30; background: var(--lcars-orange); color: #000; border: none; border-radius: 20px; padding: 10px 26px; font-family: 'Orbitron', monospace; font-size: 13px; font-weight: 900; letter-spacing: 0.28em; cursor: pointer; pointer-events: auto; transition: background 0.15s, box-shadow 0.15s; box-shadow: 0 0 0 2px #000, 0 0 24px rgba(255,153,0,0.45); animation: modePulse 2.2s ease-in-out infinite; }
+  #mode-toggle:hover { background: var(--lcars-purple); animation: none; }
+  @keyframes modePulse { 0%,100% { box-shadow: 0 0 0 2px #000, 0 0 16px rgba(255,153,0,0.35); } 50% { box-shadow: 0 0 0 2px #000, 0 0 32px rgba(255,153,0,0.75); } }
   #splat-loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 25; color: var(--lcars-teal); font-family: 'Orbitron', monospace; font-size: 13px; letter-spacing: 0.22em; text-align: center; pointer-events: none; text-shadow: 0 0 12px rgba(153,204,255,0.5); }
   body[data-mode="splat"] .hud-l .panorama-only,
   body[data-mode="splat"] .hud-r .panorama-only { display: none; }
